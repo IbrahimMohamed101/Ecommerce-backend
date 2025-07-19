@@ -4,18 +4,20 @@ FROM node:18-alpine
 # Create app directory
 WORKDIR /usr/src/app
 
-# Install app dependencies
-# A wildcard is used to ensure both package.json AND package-lock.json are copied
+# Copy package files
 COPY package*.json ./
 
-# Install production dependencies only
-RUN npm ci --only=production
+# Install all dependencies including devDependencies
+RUN npm install
 
-# Bundle app source
+# Install nodemon globally for development
+RUN npm install -g nodemon
+
+# Copy app source
 COPY . .
 
-# Expose the port the app runs on
+# Expose the port
 EXPOSE 3000
 
-# Command to run the application
-CMD ["node", "server.js"]
+# Run development server with nodemon
+CMD ["npm", "run", "dev"]

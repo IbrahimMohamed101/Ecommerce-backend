@@ -1,134 +1,317 @@
-# E-commerce Backend with SuperTokens Authentication
+# Authentication API
 
-## المميزات
+A comprehensive authentication and user management API built with Express.js and SuperTokens, providing secure user authentication, profile management, and administrative features.
 
-- ✅ تسجيل الدخول والخروج باستخدام SuperTokens
-- ✅ تسجيل حسابات جديدة مع التحقق من البريد الإلكتروني
-- ✅ تسجيل الدخول عبر Google و Facebook
-- ✅ إدارة الملف الشخصي والعناوين
-- ✅ تغيير كلمة المرور
-- ✅ إدارة الجلسات النشطة
-- ✅ رفع الصور الشخصية
-- ✅ إعدادات المستخدم والتفضيلات
+## Table of Contents
 
-## التثبيت
+- [Features](#features)
+- [Getting Started](#getting-started)
+- [Authentication](#authentication)
+- [API Endpoints](#api-endpoints)
+  - [Public Routes](#public-routes)
+  - [Protected Routes](#protected-routes)
+  - [Admin Routes](#admin-routes)
+- [Request/Response Examples](#requestresponse-examples)
+- [Error Handling](#error-handling)
+- [Middleware](#middleware)
+- [Validation](#validation)
 
-1. استنساخ المشروع:
+## Features
+
+- 🔐 Secure user authentication with SuperTokens
+- 👤 User profile management
+- 📧 Email verification system
+- 🔑 Password reset functionality
+- 📍 Address management
+- ⚙️ User preferences and settings
+- 🛡️ Session management
+- 👨‍💼 Admin functions
+- ✅ Input validation with express-validator
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js (v14 or higher)
+- Express.js
+- SuperTokens
+- A configured database
+
+### Installation
+
 ```bash
-git clone <repository-url>
-cd ecommerce-backend
+npm install express supertokens-node express-validator
 ```
 
-2. تثبيت المكتبات:
-```bash
-npm install
+### Environment Variables
+
+Create a `.env` file with the following variables:
+
+```env
+SUPERTOKENS_CONNECTION_URI=your_supertokens_uri
+SUPERTOKENS_API_KEY=your_api_key
+DATABASE_URL=your_database_url
 ```
 
-3. إعداد متغيرات البيئة:
-```bash
-cp .env.example .env
-# قم بتعديل ملف .env بالقيم الصحيحة
+## Authentication
+
+This API uses SuperTokens for authentication. Protected routes require a valid Bearer token in the Authorization header:
+
 ```
-
-4. تشغيل قاعدة البيانات:
-```bash
-# MongoDB
-mongod
-
-# Redis
-redis-server
-```
-
-5. تشغيل التطبيق:
-```bash
-npm run dev
+Authorization: Bearer <your_jwt_token>
 ```
 
 ## API Endpoints
 
-### المصادقة
-- `POST /auth/signup` - إنشاء حساب جديد
-- `POST /auth/signin` - تسجيل الدخول
-- `POST /auth/signout` - تسجيل الخروج
-- `POST /auth/user/password/reset` - إعادة تعيين كلمة المرور
-- `POST /auth/user/email/verify` - التحقق من البريد الإلكتروني
+### Public Routes
 
-### المستخدم
-- `GET /auth/user/me` - الحصول على بيانات المستخدم الحالي
-- `PUT /auth/user/profile` - تحديث الملف الشخصي
-- `PUT /auth/user/password` - تغيير كلمة المرور
-- `DELETE /auth/user/account` - حذف الحساب
+These endpoints do not require authentication.
 
-### العناوين
-- `POST /auth/user/addresses` - إضافة عنوان جديد
-- `PUT /auth/user/addresses/:id` - تحديث عنوان
-- `DELETE /auth/user/addresses/:id` - حذف عنوان
+#### Password Reset
 
-### الإعدادات
-- `PUT /auth/user/preferences` - تحديث الإعدادات
-- `POST /auth/user/avatar` - رفع صورة شخصية
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/user/password/reset` | Request password reset token |
+| POST | `/user/password/reset/submit` | Submit password reset with token |
 
-### الجلسات
-- `GET /auth/user/sessions` - الحصول على الجلسات النشطة
-- `DELETE /auth/user/sessions/:handle` - إنهاء جلسة محددة
-- `POST /auth/user/logout/all` - تسجيل الخروج من جميع الأجهزة
+### Protected Routes
 
-## الاستخدام
+These endpoints require a valid authentication token.
 
-### إنشاء حساب جديد
-```javascript
-const response = await fetch('/auth/signup', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    email: 'user@example.com',
-    password: 'Password123',
-    firstName: 'Ahmed',
-    lastName: 'Mohamed'
-  })
-});
+#### User Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/user/me` | Get current user information |
+| DELETE | `/user/account` | Delete user account |
+
+#### Authentication & Session Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/user/logout` | Logout from current session |
+| POST | `/user/logout/all` | Logout from all sessions |
+| GET | `/user/sessions` | Get all active sessions |
+| DELETE | `/user/sessions/:sessionHandle` | Revoke specific session |
+
+#### Email Verification
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/user/email/verify/resend` | Resend email verification |
+
+#### Password Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| PUT | `/user/password` | Update user password |
+
+#### Profile Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| PUT | `/user/profile` | Update user profile |
+
+#### Address Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/user/addresses` | Add new address |
+| PUT | `/user/addresses/:addressId` | Update existing address |
+| DELETE | `/user/addresses/:addressId` | Delete address |
+
+#### User Preferences
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| PUT | `/user/preferences` | Update user preferences |
+
+### Admin Routes
+
+These endpoints require admin access privileges.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/admin/reset-password` | Admin reset user password |
+
+## Request/Response Examples
+
+### Password Reset Request
+
+**Request:**
+```bash
+POST /user/password/reset
+Content-Type: application/json
+
+{
+  "formFields": [
+    {
+      "id": "email",
+      "value": "user@example.com"
+    }
+  ]
+}
 ```
 
-### تسجيل الدخول
-```javascript
-const response = await fetch('/auth/signin', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    email: 'user@example.com',
-    password: 'Password123'
-  })
-});
+**Response:**
+```json
+{
+  "status": "OK",
+  "message": "Password reset email sent"
+}
 ```
 
-### الحصول على بيانات المستخدم
-```javascript
-const response = await fetch('/auth/user/me', {
-  method: 'GET',
-  credentials: 'include'
-});
+### Update User Profile
+
+**Request:**
+```bash
+PUT /user/profile
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "phone": "+1234567890",
+  "dateOfBirth": "1990-01-01",
+  "gender": "male"
+}
 ```
 
-## الأمان
+**Response:**
+```json
+{
+  "status": "OK",
+  "message": "Profile updated successfully",
+  "user": {
+    "id": "user123",
+    "firstName": "John",
+    "lastName": "Doe",
+    "phone": "+1234567890",
+    "dateOfBirth": "1990-01-01",
+    "gender": "male"
+  }
+}
+```
 
-- استخدام SuperTokens للمصادقة الآمنة
-- تشفير كلمات المرور
-- حماية من CSRF
-- Rate limiting
-- التحقق من البريد الإلكتروني
-- إدارة الجلسات
+### Add New Address
 
-## المساهمة
+**Request:**
+```bash
+POST /user/addresses
+Authorization: Bearer <token>
+Content-Type: application/json
 
-1. Fork المشروع
-2. إنشاء branch جديد
-3. إضافة التحسينات
-4. إرسال Pull Request
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "street": "123 Main St",
+  "city": "Cairo",
+  "state": "Cairo",
+  "zipCode": "12345",
+  "phone": "+1234567890"
+}
+```
 
-## الرخصة
+### Update User Preferences
 
-MIT License
+**Request:**
+```bash
+PUT /user/preferences
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "language": "ar",
+  "currency": "EGP",
+  "theme": "light",
+  "notifications": {
+    "email": true,
+    "push": false,
+    "sms": true
+  }
+}
+```
+
+## Error Handling
+
+The API returns standardized error responses:
+
+```json
+{
+  "status": "ERROR",
+  "message": "Error description",
+  "errors": [
+    {
+      "field": "email",
+      "message": "Invalid email format"
+    }
+  ]
+}
+```
+
+Common HTTP status codes:
+- `200` - Success
+- `400` - Bad Request (validation errors)
+- `401` - Unauthorized
+- `403` - Forbidden
+- `404` - Not Found
+- `500` - Internal Server Error
+
+## Middleware
+
+### Authentication Middleware
+
+- `verifySession()` - SuperTokens session verification
+- `verifyUser` - Custom user verification middleware
+
+All protected routes automatically include these middleware functions.
+
+### Admin Middleware
+
+Admin routes include additional verification to ensure the user has administrative privileges.
+
+## Validation
+
+The API uses `express-validator` for input validation with the following rules:
+
+### Email Validation
+- Valid email format required
+- Required for registration and password reset
+
+### Password Validation
+- Minimum 6 characters
+- Required for password updates and account deletion
+
+### Phone Number Validation
+- Valid phone number format
+- International format supported
+
+### General Validation
+- Required field validation
+- Data type validation
+- String length limits
+
+## Security Features
+
+- 🛡️ SuperTokens integration for secure authentication
+- 🔒 Password hashing and secure storage
+- 🚫 Session management and revocation
+- ✅ Input validation and sanitization
+- 🔐 Admin role-based access control
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+
+This project is licensed under the MIT License.
+
+## Support
+
+For support and questions, please contact the development team or create an issue in the repository.
