@@ -1,0 +1,75 @@
+# Node modules
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# dotenv files (except the example)
+.env
+.env.*
+!.env.example
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Build output
+dist/
+build/
+
+# VS Code
+.vscode/
+
+# Uploads and temp files
+uploads/
+tmp/
+temp/
+*.tmp
+
+# Coverage reports
+coverage/
+
+# Database backups
+backups/
+
+# PM2 logs
+pids/
+*.pid
+
+# Docker
+docker-compose.override.yml
+*.local.yml
+
+# Test files and snapshots
+__tests__/
+*.test.js
+*.spec.js
+test-results/
+jest/
+
+# OS generated
+ehthumbs.db
+Icon?
+desktop.ini
+
+# Optional cache
+.cache/
+.nyc_output/
+.next/
+out/
+
+# Supertokens metadata (if any session storage is local)
+supertokens/
+
+# IDEs
+.idea/
+*.iml
+
+# Swagger generated
+swagger.json
+swagger.yaml
