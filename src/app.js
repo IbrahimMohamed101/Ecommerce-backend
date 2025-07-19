@@ -35,13 +35,19 @@ logger.info('✅ MongoDB connected successfully');
 // Configure CORS with more specific settings
 const allowedOrigins = [
     process.env.WEBSITE_DOMAIN || 'http://localhost:3000',
+    'http://localhost:3000',
     'http://localhost:3001',
     'http://127.0.0.1:3000',
     'http://127.0.0.1:3001',
     'http://localhost',
     'http://127.0.0.1',
     'https://localhost:3000',
-    'https://localhost:3001'
+    'https://localhost:3001',
+    'https://ecommerce-backend-l7a2.onrender.com',
+    'http://ecommerce-backend-l7a2.onrender.com',
+    // Add your frontend production URL here when it's ready
+    // 'https://your-frontend-domain.com',
+    // 'http://your-frontend-domain.com'
 ];
 
 const corsOptions = {
@@ -138,8 +144,20 @@ app.options('*', cors(corsOptions));
 // Intercept OPTIONS method for preflight requests handled by cors middleware
 app.options('*', cors(corsOptions));
 
-app.use(helmet());
+// Security headers
+app.use(helmet({
+    contentSecurityPolicy: false, // Disable CSP as it might block some frontend scripts
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    originAgentCluster: false,
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+    xssFilter: true
+}));
+
 app.use(compression());
+
+// Logging
 app.use(morgan('dev'));
 
 // Debugging middleware to log headers
@@ -174,6 +192,17 @@ app.use('/', verifyEmailRouter);
 
 // SuperTokens middleware
 app.use(middleware());
+
+// Root route
+app.get('/', (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: 'Welcome to E-Commerce Backend API',
+        documentation: 'Please refer to the API documentation for available endpoints',
+        version: '1.0.0',
+        status: 'operational'
+    });
+});
 
 // Routes
 app.use('/auth', require('./routes/auth'));
