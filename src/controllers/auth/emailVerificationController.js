@@ -1,86 +1,148 @@
-const supertokens = require("supertokens-node");
 const EmailVerification = require("supertokens-node/recipe/emailverification");
+const EmailPassword = require("supertokens-node/recipe/emailpassword");
 const Session = require("supertokens-node/recipe/session");
+const supertokens = require("supertokens-node");
+const { RecipeUserId } = supertokens;
+const emailService = require('../../services/emailService');
+const User = require('../../models/User');
 
 class EmailVerificationController {
-    async resendEmailVerification(req, res) {
+    // Middleware function to handle session verification for email verification endpoints
+    static async verifySessionForEmailVerification(req, res, next) {
         try {
-            // Get the session first
-            const session = await Session.getSession(req, res, { sessionRequired: true });
+            console.log('🔐 Email verification session middleware started');
             
-            if (!session) {
-                return res.status(401).json({
-                    success: false,
-                    message: 'Not authorized',
-                    code: 'UNAUTHORIZED'
-                });
-            }
-            
-            // Get user ID and tenant ID
-            const userId = session.getUserId();
-            const tenantId = session.getTenantId();
-            
-            console.log('User ID:', userId);
-            console.log('Tenant ID:', tenantId);
-            
-            // Get the user details from SuperTokens
-            const stUser = await supertokens.getUser(userId);
-            
-            if (!stUser) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'User not found',
-                    code: 'USER_NOT_FOUND'
-                });
-            }
-
-            // Find the email/password login method
-            const emailPasswordMethod = stUser.loginMethods.find(method => method.recipeId === 'emailpassword');
-            if (!emailPasswordMethod) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'User does not have an email/password login method',
-                    code: 'NO_EMAIL_PASSWORD'
-                });
-            }
-
-            console.log('Email to verify:', emailPasswordMethod.email);
-            console.log('Recipe User ID from login method:', emailPasswordMethod.recipeUserId);
-
-            // Check if email is already verified
-            const isVerified = await EmailVerification.isEmailVerified(emailPasswordMethod.recipeUserId, emailPasswordMethod.email);
-            
-            if (isVerified) {
-                return res.json({
-                    success: true,
-                    message: 'Email is already verified'
-                });
-            }
-
-            // Use the recipeUserId from the login method instead of the session
-            await EmailVerification.sendEmailVerificationEmail(tenantId, emailPasswordMethod.recipeUserId, emailPasswordMethod.email);
-            
-            return res.json({
-                success: true,
-                message: 'Verification email sent successfully'
+            // Try to get session without email verification claim validation
+            const session = await Session.getSession(req, res, {
+                sessionRequired: true,
+                overrideGlobalClaimValidators: (globalClaimValidators) => {
+                    console.log('🔧 Filtering out email verification claim validator');
+                    // Filter out email verification claim validator for this endpoint
+                    return globalClaimValidators.filter(validator => 
+                        validator.id !== EmailVerification.EmailVerificationClaim.key
+                    );
+                }
             });
             
+            console.log('✅ Session verified for email verification endpoint');
+            req.session = session; // Attach session to request
+            next();
         } catch (error) {
-            console.error('Error in resendEmailVerification:', error);
+            console.log('❌ Session verification failed:', error.message);
+            console.log('Error type:', error.type);
             
-            if (error.type === Session.Error.TRY_REFRESH_TOKEN || 
-                error.type === Session.Error.UNAUTHORISED) {
+            // Handle specific SuperTokens errors
+            if (error.type === Session.Error.TRY_REFRESH_TOKEN) {
                 return res.status(401).json({
                     success: false,
-                    message: 'Session expired. Please refresh your page and try again.',
-                    code: 'SESSION_EXPIRED'
+                    message: 'Access token expired. Please refresh your session.',
+                    code: 'TRY_REFRESH_TOKEN'
+                });
+            }
+            
+            if (error.type === Session.Error.UNAUTHORISED) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'No valid session found. Please login again.',
+                    code: 'UNAUTHORISED'
+                });
+            }
+            
+            if (error.type === Session.Error.INVALID_CLAIMS) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Session claims validation failed',
+                    code: 'INVALID_CLAIMS',
+                    claimValidationErrors: error.payload || []
                 });
             }
             
             return res.status(500).json({
                 success: false,
-                message: 'Error sending verification email: ' + error.message,
-                code: 'EMAIL_VERIFICATION_ERROR'
+                message: 'Session verification error: ' + error.message,
+                code: 'SESSION_ERROR'
+            });
+        }
+    }
+
+    async resendEmailVerification(req, res) {
+        try {
+            const { email } = req.body;
+
+            // Validate email input
+            if (!email) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Please provide an email in the request body'
+                });
+            }
+
+            // Find the user in your MongoDB database
+            const dbUser = await User.findOne({ email: email }).exec();
+            if (!dbUser) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'User not found'
+                });
+            }
+
+            // Check if user has a SuperTokens ID
+            if (!dbUser.supertokensId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'User is not properly registered with the authentication system'
+                });
+            }
+
+            const userId = dbUser.supertokensId;
+            
+            console.log(`📧 Creating email verification token for user: ${userId}, email: ${email}`);
+
+            try {
+                // Create a RecipeUserId instance from the user ID string
+                const recipeUserId = new RecipeUserId(userId);
+                
+                // Create email verification token with the RecipeUserId
+                const result = await EmailVerification.createEmailVerificationToken(
+                    'public', // tenantId
+                    recipeUserId,
+                    email
+                );
+
+                // Handle the response from SuperTokens
+                if (result.status === 'OK') {
+                    console.log(`✅ Verification email sent to ${email}`);
+                    return res.json({
+                        success: true,
+                        message: 'Verification email sent successfully.'
+                    });
+                } else if (result.status === 'EMAIL_ALREADY_VERIFIED_ERROR') {
+                    console.log(`ℹ️ Email ${email} is already verified`);
+                    return res.json({
+                        success: true,
+                        message: 'Email is already verified.'
+                    });
+                } else {
+                    console.error(`❌ Failed to send verification email: ${result.status}`);
+                    return res.status(400).json({
+                        success: false,
+                        message: `Failed to send email: ${result.status}`
+                    });
+                }
+            } catch (stError) {
+                console.error('SuperTokens API Error:', stError);
+                return res.status(500).json({
+                    success: false,
+                    message: 'Error processing verification request',
+                    error: process.env.NODE_ENV === 'development' ? stError.message : undefined
+                });
+            }
+        } catch (err) {
+            console.error('Error in resendEmailVerification:', err);
+            return res.status(500).json({
+                success: false,
+                message: 'Internal server error',
+                error: process.env.NODE_ENV === 'development' ? err.message : undefined
             });
         }
     }

@@ -27,13 +27,20 @@ class EmailService {
             const emailPass = process.env.SMTP_PASSWORD || 'sslxcvbgimgqegva';
             
             if (!emailUser || !emailPass) {
-                throw new Error('SMTP credentials are not properly configured');
+                const error = new Error('SMTP credentials are not properly configured');
+                logger.error('❌ SMTP Configuration Error:', {
+                    error: error.message,
+                    hasUser: !!emailUser,
+                    hasPass: !!emailPass,
+                    env: process.env.NODE_ENV || 'development'
+                });
+                throw error;
             }
             
             logger.info(`📧 Using email account: ${emailUser}`);
             
             // Create transporter with Gmail SMTP
-            this.transporter = nodemailer.createTransport({
+            const transporterConfig = {
                 service: 'gmail',
                 host: 'smtp.gmail.com',
                 port: 465, // Use SSL port
@@ -49,23 +56,37 @@ class EmailService {
                 rateDelta: 1000, // 1 second between emails
                 rateLimit: 5, // max 5 emails per rateDelta
                 // Debug and logging
-                debug: !isProduction,
-                logger: !isProduction ? {
+                debug: true, // Always enable debug in development
+                logger: {
                     debug: (message) => logger.debug(`📨 Nodemailer Debug:`, message),
                     info: (message) => logger.info(`ℹ️ Nodemailer Info:`, message),
-                    warn: (message) => logger.info(`⚠️ Nodemailer Warning:`, message),
+                    warn: (message) => logger.warn(`⚠️ Nodemailer Warning:`, message),
                     error: (message) => logger.error(`❌ Nodemailer Error:`, message),
                     fatal: (message) => logger.error(`🔥 Nodemailer Fatal:`, message),
                     trace: (message) => logger.debug(`🔍 Nodemailer Trace:`, message)
-                } : false
+                }
+            };
+
+            logger.debug('Transporter configuration:', {
+                ...transporterConfig,
+                auth: { user: emailUser, pass: '***' } // Don't log the actual password
             });
+            
+            this.transporter = nodemailer.createTransport(transporterConfig);
             
             // Verify connection
             await this.verifyConnection();
             this.isReady = true;
+            logger.info('✅ SMTP Transporter initialized and verified successfully');
 
         } catch (error) {
-            logger.error('Failed to initialize email transporter:', error);
+            logger.error('❌ Failed to initialize email transporter:', {
+                error: error.message,
+                stack: error.stack,
+                code: error.code,
+                command: error.command,
+                response: error.response
+            });
             this.isReady = false;
             throw error;
         }
@@ -88,16 +109,34 @@ class EmailService {
     async ensureReady() {
         if (!this.isReady || !this.transporter) {
             logger.info('Email service not ready, reinitializing...');
-            await this.initTransporter();
+            try {
+                await this.initTransporter();
+                console.log('✅ Email transporter reinitialized successfully');
+            } catch (error) {
+                console.error('❌ Failed to reinitialize email transporter:', error);
+                throw error;
+            }
         }
     }
 
     async sendVerificationEmail(email, verificationLink) {
+        console.log('📤 Preparing to send verification email to:', email);
+        
+        // Ensure the email service is ready
+        try {
+            await this.ensureReady();
+            console.log('✅ Email service is ready');
+        } catch (error) {
+            console.error('❌ Email service initialization failed:', error);
+            throw new Error('Failed to initialize email service');
+        }
+
         const logContext = {
             email: email ? email.substring(0, 3) + '***' + email.substring(email.indexOf('@')) : 'MISSING',
             hasVerificationLink: !!verificationLink,
             timestamp: new Date().toISOString(),
             service: 'Gmail SMTP',
+            env: process.env.NODE_ENV || 'development',
             port: 465,
             secure: true
         };

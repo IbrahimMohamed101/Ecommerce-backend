@@ -206,12 +206,7 @@ app.get('/', (req, res) => {
 
 // Routes
 app.use('/auth', require('./routes/auth'));
-// app.use('/api/users', require('./routes/users'));
-
-// Test email route (development only)
-if (process.env.NODE_ENV !== 'production') {
-    app.use('/api', require('./routes/testEmail'));
-}
+app.use('/api/test-email', require('./routes/test-email'));
 
 // SuperTokens error handler
 app.use(stErrorHandler());

@@ -67,8 +67,6 @@ router.post('/user/logout/all',
 
 // Email verification
 router.post('/user/email/verify/resend', 
-    verifySession(),
-    verifyUser,
     emailVerificationController.resendEmailVerification
 );
 
