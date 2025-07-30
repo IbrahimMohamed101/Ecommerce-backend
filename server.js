@@ -17,20 +17,58 @@ process.on('unhandledRejection', (err) => {
 
 const app = require('./src/app');
 const config = require('./src/config/environment');
+const connectDB = require('./src/config/database');
+const logger = require('./src/utils/logger');
 
 const PORT = config.port || 3000;
 
 console.log('🔍 Environment:', process.env.NODE_ENV || 'development');
 console.log('📡 Connecting to MongoDB...');
 
-const server = app.listen(PORT, () => {
-    console.log(`🚀 Server is running on port ${PORT}`);
-    console.log(`🔗 Health check: http://localhost:${PORT}/health`);
-    console.log(`🔐 Auth API: http://localhost:${PORT}/auth`);
-}).on('error', (err) => {
-    console.error('❌ Failed to start server:', err);
-    process.exit(1);
-});
+// Import seeders
+const runRoleSeeder = require('./src/database/seeders/init-roles');
+const runSuperAdminSeeder = require('./src/database/seeders/createSuperAdmin');
+
+// Connect to database and run seeders
+const initializeApp = async () => {
+    try {
+        await connectDB();
+        logger.info('✅ MongoDB connected successfully');
+        
+        // Run seeders
+        logger.info('🌱 Running database seeders...');
+        await runRoleSeeder();
+        await runSuperAdminSeeder();
+        logger.info('✅ Database seeders completed successfully');
+    } catch (error) {
+        logger.error('❌ Error initializing application:', error);
+        process.exit(1);
+    }
+};
+
+// Initialize the application before starting the server
+const startServer = async () => {
+    try {
+        await initializeApp();
+        
+        const server = app.listen(PORT, () => {
+            console.log(`🚀 Server is running on port ${PORT}`);
+            console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+            console.log(`🔐 Auth API: http://localhost:${PORT}/auth`);
+        }).on('error', (err) => {
+            console.error('❌ Failed to start server:', err);
+            process.exit(1);
+        });
+
+        return server;
+    } catch (error) {
+        console.error('❌ Failed to initialize application:', error);
+        process.exit(1);
+    }
+};
+
+// Start the server
+const server = startServer();
 
 // Graceful shutdown
 const shutdown = async () => {
