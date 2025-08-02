@@ -65,9 +65,9 @@
         connectionURI: process.env.SUPERTOKENS_CONNECTION_URI,
         apiKey: process.env.SUPERTOKENS_API_KEY,
         appInfo: {
-            appName: process.env.APP_NAME || "ecommerce-app",
-            apiDomain: process.env.APP_URL,
-            websiteDomain: process.env.CLIENT_URL,
+            appName: process.env.SUPERTOKENS_APP_NAME || "ecommerce-app",
+            apiDomain: process.env.API_DOMAIN || process.env.APP_URL,
+            websiteDomain: process.env.WEBSITE_DOMAIN || process.env.APP_URL,
             apiBasePath: "/auth",
             websiteBasePath: "/auth"
         }

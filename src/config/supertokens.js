@@ -23,13 +23,9 @@ const initSupertokens = () => {
             },
             appInfo: {
                 ...config.supertokens.appInfo,
-                // Force using production URLs in all environments
-                apiDomain: process.env.NODE_ENV === 'production' 
-                    ? (process.env.APP_URL || 'https://ecommerce-backend-l7a2.onrender.com')
-                    : process.env.API_DOMAIN || process.env.APP_URL,
-                websiteDomain: process.env.NODE_ENV === 'production'
-                    ? (process.env.WEBSITE_DOMAIN || process.env.APP_URL || 'https://ecommerce-backend-l7a2.onrender.com')
-                    : process.env.WEBSITE_DOMAIN || process.env.APP_URL,
+                // Use explicit domain configuration for production
+                apiDomain: process.env.API_DOMAIN || process.env.APP_URL || 'https://ecommerce-backend-l7a2.onrender.com',
+                websiteDomain: process.env.WEBSITE_DOMAIN || process.env.APP_URL || 'https://ecommerce-backend-l7a2.onrender.com',
                 websiteBasePath: "/auth"
             },
             recipeList: [

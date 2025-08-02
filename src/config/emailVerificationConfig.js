@@ -12,26 +12,39 @@ async function sendVerificationEmail(user, email, emailVerifyLink) {
             linkProvided: !!emailVerifyLink
         });
 
-        // Use the production URL from environment variables
+        // Always use the production URL from environment variables
         const productionUrl = process.env.WEBSITE_DOMAIN || process.env.APP_URL || 'https://ecommerce-backend-l7a2.onrender.com';
-        let verificationLink = emailVerifyLink;
+        let verificationLink = '';
         
-        if (emailVerifyLink) {
-            // Extract token from the original link
-            const token = emailVerifyLink.includes('?token=') 
-                ? emailVerifyLink.split('?token=')[1].split('&')[0]
-                : emailVerifyLink;
-            
-            // Always use the production URL
+        // Log the environment for debugging
+        logger.info('🔧 Environment configuration', {
+            nodeEnv: process.env.NODE_ENV,
+            websiteDomain: process.env.WEBSITE_DOMAIN,
+            appUrl: process.env.APP_URL,
+            apiDomain: process.env.API_DOMAIN,
+            usingProductionUrl: productionUrl
+        });
+        
+        // Always extract token from the original link if it exists
+        const token = emailVerifyLink && emailVerifyLink.includes('?token=') 
+            ? emailVerifyLink.split('?token=')[1].split('&')[0] 
+            : null;
+
+        // Always generate a new verification link using the production URL
+        if (token) {
             verificationLink = `${productionUrl}/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
             
-            logger.info('🔗 Generated verification link', {
+            logger.info('🔗 Generated new verification link', {
                 originalLink: emailVerifyLink,
-                newLink: verificationLink
+                newLink: verificationLink,
+                usingProductionDomain: productionUrl
             });
         } else {
-            logger.warn('No emailVerifyLink provided, using default verification URL');
+            // Fallback if no token is available
             verificationLink = `${productionUrl}/auth/verify-email?email=${encodeURIComponent(email)}`;
+            logger.warn('No token found in emailVerifyLink, using fallback URL', {
+                email: email.substring(0, 3) + '***@' + email.split('@')[1]
+            });
         }
 
         logger.info('🔗 Final verification link prepared', {
