@@ -1,8 +1,51 @@
 const EmailPassword = require("supertokens-node/recipe/emailpassword");
+const EmailVerification = require("supertokens-node/recipe/emailverification").default;
 const User = require('../models/User');
+const Role = require('../models/Role');
 const emailService = require('../services/emailService');
-const EmailVerificationInstance = require("supertokens-node/recipe/emailverification");
+const logger = require('../utils/logger');
 
+// Initialize Email Verification recipe
+EmailVerification.init({
+    mode: 'REQUIRED',
+    emailDelivery: {
+        service: {
+            sendEmail: async function (input) {
+                try {
+                    const frontendUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+                    const verificationLink = `${frontendUrl}/verify-email?token=${input.emailVerifyLink.split('?token=')[1]}&email=${encodeURIComponent(input.user.email)}`;
+                    
+                    logger.info('Sending verification email', { 
+                        to: input.user.email,
+                        verificationLink: verificationLink 
+                    });
+
+                    if (process.env.NODE_ENV !== 'production') {
+                        logger.info('DEVELOPMENT MODE: Email verification link (not actually sent):', verificationLink);
+                        return { status: 'OK' };
+                    }
+
+                    // Send the email using the email service
+                    await emailService.sendVerificationEmail(
+                        input.user.email,
+                        verificationLink
+                    );
+                    
+                    return { status: 'OK' };
+                } catch (error) {
+                    logger.error('Failed to send verification email:', error);
+                    // Don't throw the error to prevent signup from failing
+                    return { status: 'OK' }; // Return OK to prevent blocking the user
+                }
+            }
+        }
+    },
+    override: {
+        apis: (oI) => oI
+    }
+});
+
+// Initialize Email Password recipe
 module.exports = EmailPassword.init({
     emailDelivery: {
         override: (originalImplementation) => {
@@ -44,8 +87,7 @@ module.exports = EmailPassword.init({
                         return acc;
                     }, {});
                     
-                    const email = formFields.email;
-                    const password = formFields.password;
+                    const { email, password, firstName = '', lastName = '' } = formFields;
 
                     console.log('📧 Signup email:', email);
 
@@ -57,6 +99,16 @@ module.exports = EmailPassword.init({
                         };
                     }
 
+                    // Get or create customer role
+                    let customerRole = await Role.findOne({ name: 'customer' });
+                    if (!customerRole) {
+                        customerRole = await Role.create({
+                            name: 'customer',
+                            description: 'Regular customer with basic permissions',
+                            isDefault: true
+                        });
+                    }
+
                     console.log('🔄 Creating user in SuperTokens...');
                     const response = await originalImplementation.signUpPOST(input);
                     console.log('📝 SuperTokens signup response:', response);
@@ -66,12 +118,12 @@ module.exports = EmailPassword.init({
                         const newUser = new User({
                             supertokensId: response.user.id,
                             email: email,
-                            role: 'customer',
+                            role: customerRole._id,
                             isActive: true,
                             isEmailVerified: false,
                             profile: {
-                                firstName: '',
-                                lastName: '',
+                                firstName: firstName || 'User',
+                                lastName: lastName || String(new Date().getFullYear()),
                                 phone: '',
                                 avatar: ''
                             },
@@ -95,27 +147,65 @@ module.exports = EmailPassword.init({
 
                         try {
                             console.log('🔄 Triggering email verification...');
-                            const tokenResponse = await EmailVerificationInstance.createEmailVerificationToken(
-                                "public",
-                                response.user.loginMethods[0].recipeUserId,
-                                email
+                            
+                            // Get the recipe user ID correctly
+                            let recipeUserId;
+                            
+                            if (response.user.loginMethods && response.user.loginMethods.length > 0) {
+                                // Get from loginMethods array - this is the RecipeUserId object
+                                recipeUserId = response.user.loginMethods[0].recipeUserId;
+                            } else {
+                                // This shouldn't happen, but fallback to creating a RecipeUserId
+                                const { RecipeUserId } = require("supertokens-node/lib/build/recipeUserId");
+                                recipeUserId = new RecipeUserId(response.user.id);
+                            }
+                            
+                            console.log('🔍 Using recipeUserId object:', recipeUserId);
+                            
+                            // Use the RecipeUserId object directly (not as string)
+                            const tokenResult = await EmailVerification.createEmailVerificationToken(
+                                "public", 
+                                recipeUserId  // Pass the object, not string
                             );
                             
-                            console.log('📝 Token creation response:', tokenResponse);
-                            
-                            if (tokenResponse.status === "OK") {
-                                const frontendUrl = process.env.CLIENT_URL || 'http://localhost:3000';
-                                const verificationLink = `${frontendUrl}/verify-email?token=${tokenResponse.token}`;
-                                console.log('🔗 Verification link:', verificationLink);
+                            if (tokenResult.status === "OK") {
+                                logger.info('Email verification token created for user', { 
+                                    userId: response.user.id,
+                                    recipeUserId: recipeUserId.getAsString(),
+                                    email: email,
+                                    token: tokenResult.token
+                                });
                                 
-                                const emailResult = await emailService.sendVerificationEmail(
-                                    email,
-                                    verificationLink
-                                );
-                                console.log('✅ Verification email sent:', emailResult);
+                                // Create the verification link with /auth prefix
+                                const frontendUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+                                const verificationLink = `${frontendUrl}/auth/verify-email?token=${tokenResult.token}&email=${encodeURIComponent(email)}`;
+                                
+                                // Send verification email directly using our email service
+                                try {
+                                    await emailService.sendVerificationEmail(email, verificationLink);
+                                    logger.info('Email verification email sent successfully', { 
+                                        userId: response.user.id,
+                                        email: email
+                                    });
+                                } catch (emailError) {
+                                    logger.error('Failed to send verification email:', emailError);
+                                    // Don't fail the signup process
+                                }
+                            } else {
+                                logger.warn('Failed to create email verification token', {
+                                    userId: response.user.id,
+                                    status: tokenResult.status,
+                                    error: tokenResult.error || 'Unknown error'
+                                });
                             }
                         } catch (error) {
-                            console.error('❌ Failed to send verification email:', error);
+                            logger.error('Failed to initiate email verification:', {
+                                error: error.message,
+                                stack: error.stack,
+                                userId: response.user.id
+                            });
+                            // Don't fail the signup if email verification fails
+                            // The user can request a new verification email later
                         }
                     }
 

@@ -1,75 +1,45 @@
 const nodemailer = require('nodemailer');
-
-// Simple console logger
-const logger = {
-    info: (...args) => console.log('[INFO]', ...args),
-    error: (...args) => console.error('[ERROR]', ...args),
-    debug: (...args) => process.env.DEBUG && console.log('[DEBUG]', ...args)
-};
-
-// Always use real email in production and development
-const isProduction = process.env.NODE_ENV === 'production';
+const Logger = require('../utils/logger');
+const EmailConfig = require('../config/emailConfig');
+const EmailTemplates = require('../templates/emailTemplates');
+const EmailValidator = require('../utils/emailValidator');
+const EmailErrorHandler = require('../utils/emailErrorHandler');
 
 class EmailService {
     constructor() {
-        logger.info('Initializing EmailService...');
+        Logger.info('Initializing EmailService...');
         this.transporter = null;
         this.isReady = false;
+        this.retryAttempts = 3;
+        this.retryDelay = 2000; // 2 seconds
         this.initTransporter();
     }
 
     async initTransporter() {
         try {
-            logger.info('🚀 Initializing Gmail SMTP transporter...');
+            Logger.info('🚀 Initializing Gmail SMTP transporter...');
             
-            // Get credentials from environment
-            const emailUser = process.env.SMTP_USER || 'hemaatar636@gmail.com';
-            const emailPass = process.env.SMTP_PASSWORD || 'sslxcvbgimgqegva';
-            
-            if (!emailUser || !emailPass) {
+            // Validate credentials first
+            const credentialCheck = EmailConfig.validateCredentials();
+            if (!credentialCheck.isValid) {
                 const error = new Error('SMTP credentials are not properly configured');
-                logger.error('❌ SMTP Configuration Error:', {
+                Logger.error('❌ SMTP Configuration Error:', {
                     error: error.message,
-                    hasUser: !!emailUser,
-                    hasPass: !!emailPass,
+                    hasUser: credentialCheck.hasUser,
+                    hasPass: credentialCheck.hasPass,
                     env: process.env.NODE_ENV || 'development'
                 });
                 throw error;
             }
             
-            logger.info(`📧 Using email account: ${emailUser}`);
+            Logger.info(`📧 Using email account: ${credentialCheck.user}`);
             
-            // Create transporter with Gmail SMTP
-            const transporterConfig = {
-                service: 'gmail',
-                host: 'smtp.gmail.com',
-                port: 465, // Use SSL port
-                secure: true, // true for 465, false for other ports
-                auth: {
-                    user: emailUser,
-                    pass: emailPass
-                },
-                // Gmail requires these settings
-                pool: true,
-                maxConnections: 3,
-                maxMessages: 10,
-                rateDelta: 1000, // 1 second between emails
-                rateLimit: 5, // max 5 emails per rateDelta
-                // Debug and logging
-                debug: true, // Always enable debug in development
-                logger: {
-                    debug: (message) => logger.debug(`📨 Nodemailer Debug:`, message),
-                    info: (message) => logger.info(`ℹ️ Nodemailer Info:`, message),
-                    warn: (message) => logger.warn(`⚠️ Nodemailer Warning:`, message),
-                    error: (message) => logger.error(`❌ Nodemailer Error:`, message),
-                    fatal: (message) => logger.error(`🔥 Nodemailer Fatal:`, message),
-                    trace: (message) => logger.debug(`🔍 Nodemailer Trace:`, message)
-                }
-            };
-
-            logger.debug('Transporter configuration:', {
+            // Get transporter configuration
+            const transporterConfig = EmailConfig.getTransporterConfig();
+            
+            Logger.debug('Transporter configuration:', {
                 ...transporterConfig,
-                auth: { user: emailUser, pass: '***' } // Don't log the actual password
+                auth: { user: credentialCheck.user, pass: '***' }
             });
             
             this.transporter = nodemailer.createTransport(transporterConfig);
@@ -77,10 +47,10 @@ class EmailService {
             // Verify connection
             await this.verifyConnection();
             this.isReady = true;
-            logger.info('✅ SMTP Transporter initialized and verified successfully');
+            Logger.info('✅ SMTP Transporter initialized and verified successfully');
 
         } catch (error) {
-            logger.error('❌ Failed to initialize email transporter:', {
+            Logger.error('❌ Failed to initialize email transporter:', {
                 error: error.message,
                 stack: error.stack,
                 code: error.code,
@@ -96,233 +66,212 @@ class EmailService {
         try {
             const isConnected = await this.transporter.verify();
             if (isConnected) {
-                logger.info('✅ SMTP Server is ready to take our messages');
+                Logger.info('✅ SMTP Server is ready to take our messages');
                 return true;
             }
             return false;
         } catch (error) {
-            logger.error('❌ SMTP Connection Error:', error);
-            throw error;
+            Logger.error('❌ SMTP Connection verification failed:', error);
+            EmailErrorHandler.handleEmailError(error);
+            return false;
         }
     }
 
     async ensureReady() {
         if (!this.isReady || !this.transporter) {
-            logger.info('Email service not ready, reinitializing...');
+            Logger.info('Email service not ready, reinitializing...');
             try {
                 await this.initTransporter();
-                console.log('✅ Email transporter reinitialized successfully');
+                Logger.info('✅ Email transporter reinitialized successfully');
             } catch (error) {
-                console.error('❌ Failed to reinitialize email transporter:', error);
+                Logger.error('❌ Failed to reinitialize email transporter:', error);
                 throw error;
             }
         }
     }
 
-    async sendVerificationEmail(email, verificationLink) {
-        console.log('📤 Preparing to send verification email to:', email);
-        
-        // Ensure the email service is ready
+    async sendEmailWithRetry(mailOptions, attempt = 1) {
         try {
-            await this.ensureReady();
-            console.log('✅ Email service is ready');
-        } catch (error) {
-            console.error('❌ Email service initialization failed:', error);
-            throw new Error('Failed to initialize email service');
-        }
-
-        const logContext = {
-            email: email ? email.substring(0, 3) + '***' + email.substring(email.indexOf('@')) : 'MISSING',
-            hasVerificationLink: !!verificationLink,
-            timestamp: new Date().toISOString(),
-            service: 'Gmail SMTP',
-            env: process.env.NODE_ENV || 'development',
-            port: 465,
-            secure: true
-        };
-        
-        logger.info('📤 Attempting to send verification email', logContext);
-        
-        // Validate inputs
-        if (!email || !verificationLink) {
-            const error = new Error('Email and verification link are required');
-            logger.error('❌ Validation error', { 
-                ...logContext, 
-                error: error.message,
-                stack: error.stack 
-            });
-            throw error;
-        }
-        
-        // Ensure email service is properly initialized
-        if (!this.transporter) {
-            logger.error('❌ Email transporter not initialized');
-            await this.initTransporter();
-        }
-
-        // Ensure email service is ready
-        await this.ensureReady();
-        
-        const mailOptions = {
-            from: `"${process.env.EMAIL_FROM_NAME || 'متجر إلكتروني'}" <${process.env.EMAIL_FROM || process.env.SMTP_USER || 'hemaatar636@gmail.com'}>`,
-            to: email,
-            subject: 'تأكيد البريد الإلكتروني - Email Verification',
-            html: this.getVerificationEmailHTML(verificationLink),
-            text: this.getVerificationEmailText(verificationLink)
-        };
-
-        logger.info('Mail options prepared:', {
-            from: mailOptions.from,
-            to: mailOptions.to,
-            subject: mailOptions.subject,
-            hasHtml: !!mailOptions.html,
-            hasText: !!mailOptions.text
-        });
-
-        try {
-            logger.info('📮 Sending email via Gmail SMTP...');
             const info = await this.transporter.sendMail(mailOptions);
-            
-            const result = { 
-                success: true, 
+            return {
+                success: true,
                 messageId: info.messageId,
                 response: info.response,
                 envelope: info.envelope,
                 previewUrl: nodemailer.getTestMessageUrl(info) || null
             };
+        } catch (error) {
+            if (attempt < this.retryAttempts && EmailErrorHandler.isRetryableError(error)) {
+                Logger.warn(`⚠️ Retry attempt ${attempt}/${this.retryAttempts} after ${this.retryDelay}ms`);
+                await this.delay(this.retryDelay);
+                return this.sendEmailWithRetry(mailOptions, attempt + 1);
+            }
+            throw error;
+        }
+    }
+
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    /**
+     * Send a generic email
+     * @param {Object} options - Email options
+     * @param {string} options.to - Recipient email address
+     * @param {string} options.subject - Email subject
+     * @param {string} options.html - HTML content of the email
+     * @param {string} [options.text] - Plain text content of the email (optional)
+     * @param {Array} [options.attachments] - Email attachments (optional)
+     */
+    async sendEmail({ to, subject, html, text, attachments = [] }) {
+        await this.ensureReady();
+
+        try {
+            // Validate input
+            EmailValidator.validateEmailOptions({ to, subject, html });
+
+            const mailOptions = {
+                from: EmailConfig.getFromAddress(),
+                to: EmailValidator.sanitizeEmail(to),
+                subject,
+                html,
+                text: text || html.replace(/<[^>]*>?/gm, ''),
+                attachments
+            };
+
+            Logger.debug('Sending email with options:', {
+                to: EmailValidator.maskEmailForLogging(to),
+                subject,
+                hasHtml: !!html,
+                hasText: !!text,
+                attachmentsCount: attachments.length
+            });
+
+            const result = await this.sendEmailWithRetry(mailOptions);
             
-            logger.info('✅ Email sent successfully:', {
-                messageId: info.messageId,
-                response: info.response,
-                accepted: info.accepted,
-                rejected: info.rejected
+            Logger.info(`✅ Email sent to ${EmailValidator.maskEmailForLogging(to)} with message ID: ${result.messageId}`);
+            return result;
+
+        } catch (error) {
+            Logger.error('❌ Failed to send email:', {
+                error: error.message,
+                to: EmailValidator.maskEmailForLogging(to),
+                subject
+            });
+            EmailErrorHandler.handleEmailError(error);
+            throw error;
+        }
+    }
+
+    /**
+     * Send an email verification email
+     * @param {string} email - Recipient email address
+     * @param {string} verificationLink - Verification link
+     */
+    async sendVerificationEmail(email, verificationLink) {
+        Logger.info('📤 Preparing to send verification email to:', EmailValidator.maskEmailForLogging(email));
+        
+        const logContext = EmailValidator.createLogContext(email, {
+            hasVerificationLink: !!verificationLink
+        });
+        
+        Logger.info('📤 Attempting to send verification email', logContext);
+        
+        // Validate inputs
+        if (!email || !verificationLink) {
+            const error = new Error('Email and verification link are required');
+            Logger.error('❌ Validation error', { 
+                ...logContext, 
+                error: error.message 
+            });
+            throw error;
+        }
+
+        try {
+            const result = await this.sendEmail({
+                to: email,
+                subject: 'تأكيد البريد الإلكتروني - Email Verification',
+                html: EmailTemplates.getVerificationEmailHTML(verificationLink),
+                text: EmailTemplates.getVerificationEmailText(verificationLink)
+            });
+
+            Logger.info('✅ Verification email sent successfully:', {
+                messageId: result.messageId,
+                to: EmailValidator.maskEmailForLogging(email)
             });
             
             return result;
             
         } catch (error) {
-            logger.error('❌ Failed to send email:', {
-                name: error.name,
-                message: error.message,
-                code: error.code,
-                command: error.command,
-                response: error.response,
-                responseCode: error.responseCode
+            Logger.error('❌ Failed to send verification email:', {
+                error: error.message,
+                to: EmailValidator.maskEmailForLogging(email)
             });
-            
-            // Provide specific error guidance
-            this.handleEmailError(error);
-            
             throw error;
         }
     }
 
-    handleEmailError(error) {
-        if (error.code === 'EAUTH') {
-            logger.error('🔐 Authentication failed - Check your credentials:');
-            logger.error('   - Make sure you\'re using an App Password (not your regular password)');
-            logger.error('   - Enable 2-factor authentication on your Google account');
-            logger.error('   - Generate an App Password from: https://myaccount.google.com/apppasswords');
-        } else if (error.code === 'ECONNECTION') {
-            logger.error('🌐 Connection to SMTP server failed:');
-            logger.error('   - Check your internet connection');
-            logger.error('   - Verify firewall settings');
-        } else if (error.code === 'EENVELOPE') {
-            logger.error('📧 Email address issue:');
-            logger.error('   - Verify the recipient email address');
-        } else if (error.code === 'EMESSAGE') {
-            logger.error('📝 Message content issue:');
-            logger.error('   - Check email content for problems');
+    /**
+     * Send an account activation email
+     * @param {string} to - Recipient email address
+     * @param {string} name - Recipient's name
+     * @param {string} activationLink - Activation link for the account
+     */
+    async sendActivationEmail(to, name, activationLink) {
+        try {
+            const result = await this.sendEmail({
+                to,
+                subject: 'تفعيل حسابك - E-Commerce Admin',
+                html: EmailTemplates.getActivationEmailHTML(name, activationLink)
+            });
+
+            Logger.info(`✅ تم إرسال بريد التفعيل بنجاح إلى ${EmailValidator.maskEmailForLogging(to)}`);
+            return result;
+        } catch (error) {
+            Logger.error('❌ فشل إرسال بريد التفعيل:', error);
+            throw error;
         }
     }
 
-    getVerificationEmailHTML(verificationLink) {
-        return `
-            <!DOCTYPE html>
-            <html dir="rtl" lang="ar">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>تأكيد البريد الإلكتروني</title>
-            </head>
-            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f4f4f4;">
-                <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-                    <div style="text-align: center; margin-bottom: 30px;">
-                        <h1 style="color: #333; margin: 0;">مرحباً بك في متجرنا الإلكتروني</h1>
-                        <p style="color: #666; font-size: 16px;">Welcome to our E-commerce Store</p>
-                    </div>
-                    
-                    <div style="background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0;">
-                        <p style="margin: 0; font-size: 16px; line-height: 1.6;">
-                            شكراً لتسجيلك معنا. يرجى النقر على الزر أدناه لتأكيد بريدك الإلكتروني:
-                        </p>
-                        <p style="margin: 10px 0 0 0; font-size: 14px; color: #666;">
-                            Thank you for registering with us. Please click the button below to verify your email:
-                        </p>
-                    </div>
-                    
-                    <div style="text-align: center; margin: 30px 0;">
-                        <a href="${verificationLink}" 
-                           style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                                  color: white; 
-                                  padding: 15px 30px; 
-                                  text-decoration: none; 
-                                  border-radius: 25px; 
-                                  font-weight: bold; 
-                                  display: inline-block;
-                                  font-size: 16px;
-                                  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);">
-                            تأكيد البريد الإلكتروني / Verify Email
-                        </a>
-                    </div>
-                    
-                    <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                        <p style="margin: 0; font-size: 14px; color: #856404;">
-                            إذا لم يعمل الزر، انسخ الرابط التالي والصقه في متصفحك:
-                        </p>
-                        <p style="margin: 5px 0 0 0; font-size: 14px; color: #856404;">
-                            If the button doesn't work, copy and paste this link in your browser:
-                        </p>
-                        <p style="word-break: break-all; color: #0066cc; font-size: 12px; margin: 10px 0 0 0;">
-                            ${verificationLink}
-                        </p>
-                    </div>
-                    
-                    <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-                    
-                    <div style="text-align: center;">
-                        <p style="color: #888; font-size: 12px; margin: 0;">
-                            إذا لم تقم بطلب هذا البريد الإلكتروني، فيمكنك تجاهله بأمان.
-                        </p>
-                        <p style="color: #888; font-size: 12px; margin: 5px 0 0 0;">
-                            If you didn't request this email, you can safely ignore it.
-                        </p>
-                    </div>
-                </div>
-            </body>
-            </html>
-        `;
+    /**
+     * Send a password reset email
+     * @param {string} email - Recipient email address
+     * @param {string} name - Recipient's name
+     * @param {string} resetLink - Password reset link
+     */
+    async sendPasswordResetEmail(email, name, resetLink) {
+        try {
+            const result = await this.sendEmail({
+                to: email,
+                subject: 'إعادة تعيين كلمة المرور - Password Reset',
+                html: EmailTemplates.getPasswordResetEmailHTML(name, resetLink)
+            });
+
+            Logger.info(`✅ Password reset email sent successfully to ${EmailValidator.maskEmailForLogging(email)}`);
+            return result;
+        } catch (error) {
+            Logger.error('❌ Failed to send password reset email:', error);
+            throw error;
+        }
     }
 
-    getVerificationEmailText(verificationLink) {
-        return `
-مرحباً بك في متجرنا الإلكتروني
-Welcome to our E-commerce Store
-
-شكراً لتسجيلك معنا. لتأكيد بريدك الإلكتروني، يرجى زيارة الرابط التالي:
-Thank you for registering with us. To verify your email, please visit the following link:
-
-${verificationLink}
-
-إذا لم تقم بطلب هذا البريد الإلكتروني، فيمكنك تجاهله بأمان.
-If you didn't request this email, you can safely ignore it.
-        `;
-    }
-
-    // Method to send password reset emails (if needed)
-    async sendPasswordResetEmail(email, resetLink) {
-        // Similar implementation for password reset
-        // You can implement this later if needed
+    // Health check method
+    async healthCheck() {
+        try {
+            await this.ensureReady();
+            const isConnected = await this.verifyConnection();
+            return {
+                status: isConnected ? 'healthy' : 'unhealthy',
+                isReady: this.isReady,
+                timestamp: new Date().toISOString()
+            };
+        } catch (error) {
+            return {
+                status: 'error',
+                error: error.message,
+                timestamp: new Date().toISOString()
+            };
+        }
     }
 }
 

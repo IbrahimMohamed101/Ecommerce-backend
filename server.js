@@ -6,13 +6,19 @@ process.on('uncaughtException', (error) => {
     process.exit(1);
 });
 
+let server; // Declare server variable to hold the server instance
+
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
     console.error('UNHANDLED REJECTION! 💥 Shutting down...');
     console.error(err);
-    server.close(() => {
+    if (server) {
+        server.close(() => {
+            process.exit(1);
+        });
+    } else {
         process.exit(1);
-    });
+    }
 });
 
 const app = require('./src/app');
@@ -67,16 +73,24 @@ const startServer = async () => {
     }
 };
 
-// Start the server
-const server = startServer();
+startServer().then((srv) => {
+    server = srv;
+}).catch((err) => {
+    console.error('❌ Error starting server:', err);
+    process.exit(1);
+});
 
 // Graceful shutdown
 const shutdown = async () => {
     console.log('🛑 Shutting down gracefully...');
-    server.close(() => {
-        console.log('✅ Process terminated');
+    if (server) {
+        server.close(() => {
+            console.log('✅ Process terminated');
+            process.exit(0);
+        });
+    } else {
         process.exit(0);
-    });
+    }
 
     // Force close after 10 seconds
     setTimeout(() => {

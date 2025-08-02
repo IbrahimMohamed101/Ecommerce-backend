@@ -23,7 +23,16 @@ logger.info('🚀 Starting server initialization...', {
 const { initSupertokens } = require('./config/supertokens');
 // Initialize SuperTokens first
 logger.info('Initializing SuperTokens...');
-initSupertokens();
+initSupertokens({
+    session: {
+        // Set session lifetime to 7 days
+        accessTokenValidity: 60 * 60 * 24 * 7, // 7 days in seconds
+        refreshTokenValidity: 60 * 60 * 24 * 30, // 30 days in seconds
+        cookieSameSite: 'lax',
+        cookieSecure: process.env.NODE_ENV === 'production',
+        domain: process.env.COOKIE_DOMAIN || 'localhost'
+    }
+});
 logger.info('✅ SuperTokens initialized successfully');
 
 // Then connect to MongoDB
@@ -186,9 +195,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Static files
 app.use('/uploads', express.static('uploads'));
 
-// Email verification route
-const verifyEmailRouter = require('./routes/verifyEmail');
-app.use('/', verifyEmailRouter);
+// Auth routes (including email verification)
+const authRoutes = require('./routes/authRoutes');
+app.use('/auth', authRoutes);
 
 // SuperTokens middleware
 app.use(middleware());
@@ -210,6 +219,9 @@ app.use('/api/test-email', require('./routes/test-email'));
 
 // SuperTokens error handler
 app.use(stErrorHandler());
+
+// Admin Management Routes (protected by super admin)
+app.use('/api/admin', require('./routes/adminManagement'));
 
 // 404 handler
 app.use((req, res, next) => {

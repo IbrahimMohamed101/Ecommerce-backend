@@ -14,32 +14,50 @@ const SESSION_CONFIG = {
         'authorization',
         'st-last-access-token-update',
         'content-type',
-        'anti-csrf'
+        'anti-csrf',
+        'x-requested-with',
+        'x-csrf-token',
+        'credentials'
     ]
 };
 
 const ENVIRONMENT = {
     IS_PRODUCTION: process.env.NODE_ENV === 'production',
-    APP_DOMAIN: process.env.APP_DOMAIN,
-    ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000']
+    APP_DOMAIN: process.env.APP_DOMAIN || 'http://localhost:3000',
+    CLIENT_DOMAIN: process.env.CLIENT_URL || 'http://localhost:3000',
+    ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3001']
 };
 
 /**
  * Enhanced CORS header handler
  */
 function getCorsHeaders(context) {
-    const origin = context.req.get('origin');
+    const origin = context?.req?.get?.('origin') || ENVIRONMENT.CLIENT_DOMAIN;
     const allowedOrigin = ENVIRONMENT.IS_PRODUCTION 
         ? (ENVIRONMENT.ALLOWED_ORIGINS.includes(origin) ? origin : ENVIRONMENT.ALLOWED_ORIGINS[0])
-        : (origin || 'http://localhost:3000');
+        : (origin || ENVIRONMENT.CLIENT_DOMAIN);
 
-    return {
+    console.log('CORS Headers - Origin:', origin, 'Allowed Origin:', allowedOrigin);
+
+    const headers = {
         'Access-Control-Allow-Origin': allowedOrigin,
         'Access-Control-Allow-Credentials': 'true',
         'Access-Control-Allow-Headers': SESSION_CONFIG.CORS_HEADERS.join(', '),
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Max-Age': '86400' // Cache preflight for 24 hours
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
+        'Access-Control-Max-Age': '86400', // Cache preflight for 24 hours
+        'Access-Control-Expose-Headers': 'st-auth-mode, st-last-access-token-update',
+        'Vary': 'Origin, Access-Control-Request-Method, Access-Control-Request-Headers'
     };
+
+    // Add additional security headers in production
+    if (ENVIRONMENT.IS_PRODUCTION) {
+        headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains';
+        headers['X-Content-Type-Options'] = 'nosniff';
+        headers['X-Frame-Options'] = 'DENY';
+        headers['X-XSS-Protection'] = '1; mode=block';
+    }
+
+    return headers;
 }
 
 /**
