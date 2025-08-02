@@ -23,8 +23,13 @@ const initSupertokens = () => {
             },
             appInfo: {
                 ...config.supertokens.appInfo,
-                apiDomain: process.env.API_DOMAIN || process.env.APP_URL,
-                websiteDomain: process.env.WEBSITE_DOMAIN || process.env.APP_URL,
+                // Force using production URLs in all environments
+                apiDomain: process.env.NODE_ENV === 'production' 
+                    ? 'https://ecommerce-backend.onrender.com' 
+                    : process.env.API_DOMAIN || process.env.APP_URL,
+                websiteDomain: process.env.NODE_ENV === 'production'
+                    ? 'https://ecommerce-backend.onrender.com'
+                    : process.env.WEBSITE_DOMAIN || process.env.APP_URL,
                 websiteBasePath: "/auth"
             },
             recipeList: [

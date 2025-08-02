@@ -20,8 +20,12 @@
         apiKey: process.env.SUPERTOKENS_API_KEY,
         appInfo: {
             appName: process.env.SUPERTOKENS_APP_NAME || "ecommerce-app",
-            apiDomain: process.env.APP_URL,
-            websiteDomain: process.env.CLIENT_URL,
+            apiDomain: process.env.NODE_ENV === 'production' 
+                ? 'https://ecommerce-backend.onrender.com'
+                : process.env.APP_URL || 'http://localhost:3000',
+            websiteDomain: process.env.NODE_ENV === 'production'
+                ? 'https://ecommerce-backend.onrender.com'
+                : process.env.WEBSITE_DOMAIN || 'http://localhost:3000',
             apiBasePath: "/auth",
             websiteBasePath: "/auth"
         },
