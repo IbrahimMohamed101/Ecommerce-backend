@@ -12,15 +12,19 @@ async function sendVerificationEmail(user, email, emailVerifyLink) {
             linkProvided: !!emailVerifyLink
         });
 
-        // Parse the token from the link if it's a full URL
+                // Always use the production URL in all environments
+        // This ensures consistent behavior across all environments
         let verificationLink = emailVerifyLink;
         if (emailVerifyLink.includes('?token=')) {
             const token = emailVerifyLink.split('?token=')[1];
-            // Always use production URL in production, otherwise fallback to environment variables
-            const frontendUrl = process.env.NODE_ENV === 'production'
-                ? 'https://ecommerce-backend.onrender.com'
-                : process.env.WEBSITE_DOMAIN || process.env.APP_URL || 'http://localhost:3000';
-            verificationLink = `${frontendUrl}/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
+            // Always use the production URL
+            const productionUrl = 'https://ecommerce-backend.onrender.com';
+            verificationLink = `${productionUrl}/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
+            
+            logger.info('🔗 Generated verification link', {
+                originalLink: emailVerifyLink,
+                newLink: verificationLink
+            });
         }
 
         logger.info('🔗 Final verification link prepared', {
