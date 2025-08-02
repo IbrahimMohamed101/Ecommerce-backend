@@ -12,8 +12,8 @@ async function sendVerificationEmail(user, email, emailVerifyLink) {
             linkProvided: !!emailVerifyLink
         });
 
-        // Always use the production URL in all environments
-        const productionUrl = 'https://ecommerce-backend.onrender.com';
+        // Use the production URL from environment variables
+        const productionUrl = process.env.WEBSITE_DOMAIN || process.env.APP_URL || 'https://ecommerce-backend-l7a2.onrender.com';
         let verificationLink = emailVerifyLink;
         
         if (emailVerifyLink) {

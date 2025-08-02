@@ -25,10 +25,10 @@ const initSupertokens = () => {
                 ...config.supertokens.appInfo,
                 // Force using production URLs in all environments
                 apiDomain: process.env.NODE_ENV === 'production' 
-                    ? 'https://ecommerce-backend.onrender.com' 
+                    ? (process.env.APP_URL || 'https://ecommerce-backend-l7a2.onrender.com')
                     : process.env.API_DOMAIN || process.env.APP_URL,
                 websiteDomain: process.env.NODE_ENV === 'production'
-                    ? 'https://ecommerce-backend.onrender.com'
+                    ? (process.env.WEBSITE_DOMAIN || process.env.APP_URL || 'https://ecommerce-backend-l7a2.onrender.com')
                     : process.env.WEBSITE_DOMAIN || process.env.APP_URL,
                 websiteBasePath: "/auth"
             },
