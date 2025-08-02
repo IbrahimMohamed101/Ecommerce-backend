@@ -16,7 +16,8 @@ async function sendVerificationEmail(user, email, emailVerifyLink) {
         let verificationLink = emailVerifyLink;
         if (emailVerifyLink.includes('?token=')) {
             const token = emailVerifyLink.split('?token=')[1];
-            const frontendUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+            // Use WEBSITE_DOMAIN from environment variables, fallback to APP_URL, then to default
+            const frontendUrl = process.env.WEBSITE_DOMAIN || process.env.APP_URL || 'https://ecommerce-backend.onrender.com';
             verificationLink = `${frontendUrl}/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
         }
 
