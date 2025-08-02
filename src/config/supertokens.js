@@ -23,8 +23,9 @@ const initSupertokens = () => {
             },
             appInfo: {
                 ...config.supertokens.appInfo,
-                apiDomain: process.env.APP_URL || 'http://localhost:3000',
-                websiteDomain: process.env.CLIENT_URL || 'http://localhost:3000',
+                apiDomain: process.env.API_DOMAIN || process.env.APP_URL,
+                websiteDomain: process.env.WEBSITE_DOMAIN || process.env.APP_URL,
+                websiteBasePath: "/auth"
             },
             recipeList: [
                 emailVerificationConfig,
