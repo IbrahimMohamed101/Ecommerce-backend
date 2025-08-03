@@ -35,7 +35,8 @@ router.get('/', async (req, res) => {
         }
         
         const verificationToken = tokenResult.token;
-        const testLink = `http://localhost:3000/verify-email?token=${verificationToken}`;
+        const baseUrl = process.env.NEXT_PUBLIC_WEBSITE_DOMAIN || process.env.WEBSITE_DOMAIN || process.env.APP_URL || 'https://ecommerce-backend-l7a2.onrender.com';
+        const testLink = `${baseUrl}/verify-email?token=${verificationToken}`;
         
         console.log('🚀 Sending test email to:', testEmail);
         
@@ -87,7 +88,8 @@ router.post('/', async (req, res) => {
         }
         
         const verificationToken = tokenResult.token;
-        const testLink = `http://localhost:3000/verify-email?token=${verificationToken}`;
+        const baseUrl = process.env.NEXT_PUBLIC_WEBSITE_DOMAIN || process.env.WEBSITE_DOMAIN || process.env.APP_URL || 'https://ecommerce-backend-l7a2.onrender.com';
+        const testLink = `${baseUrl}/verify-email?token=${verificationToken}`;
         
         console.log('🚀 Sending test email to:', email);
         
@@ -178,7 +180,8 @@ router.post('/verify', async (req, res) => {
         }
         
         const verificationToken = tokenResult.token;
-        const testLink = `http://localhost:3000/verify-email?token=${verificationToken}`;
+        const baseUrl = process.env.NEXT_PUBLIC_WEBSITE_DOMAIN || process.env.WEBSITE_DOMAIN || process.env.APP_URL || 'https://ecommerce-backend-l7a2.onrender.com';
+        const testLink = `${baseUrl}/verify-email?token=${verificationToken}`;
         
         console.log('📤 Sending verification email to:', email);
         console.log('🔗 Verification link:', testLink);

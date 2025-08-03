@@ -12,9 +12,14 @@ async function sendVerificationEmail(user, email, emailVerifyLink) {
             linkProvided: !!emailVerifyLink
         });
 
-        // Always use the production URL from environment variables
-        const productionUrl = process.env.NEXT_PUBLIC_WEBSITE_DOMAIN || process.env.WEBSITE_DOMAIN || process.env.APP_URL || 'https://ecommerce-backend-l7a2.onrender.com';
-        const basePath = process.env.NEXT_PUBLIC_WEBSITE_BASE_PATH || '';
+        // Use explicit production URL in production environment
+        const productionUrl = process.env.NODE_ENV === 'production'
+            ? 'https://ecommerce-backend-l7a2.onrender.com'
+            : (process.env.NEXT_PUBLIC_WEBSITE_DOMAIN || process.env.WEBSITE_DOMAIN || process.env.APP_URL || 'http://localhost:3000');
+        
+        // Ensure no double slashes in the URL
+        const basePath = (process.env.NEXT_PUBLIC_WEBSITE_BASE_PATH || '').replace(/^\/+|\/+$/g, '');
+        const pathPrefix = basePath ? `/${basePath}` : '';
         let verificationLink = '';
         
         // Log the environment for debugging
@@ -33,7 +38,7 @@ async function sendVerificationEmail(user, email, emailVerifyLink) {
 
         // Always generate a new verification link using the production URL
         if (token) {
-            verificationLink = `${productionUrl}${basePath}/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
+            verificationLink = `${productionUrl}${pathPrefix}/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
             
             logger.info('🔗 Generated new verification link', {
                 originalLink: emailVerifyLink,
@@ -42,7 +47,7 @@ async function sendVerificationEmail(user, email, emailVerifyLink) {
             });
         } else {
             // Fallback if no token is available
-            verificationLink = `${productionUrl}${basePath}/auth/verify-email?email=${encodeURIComponent(email)}`;
+            verificationLink = `${productionUrl}${pathPrefix}/auth/verify-email?email=${encodeURIComponent(email)}`;
             logger.warn('No token found in emailVerifyLink, using fallback URL', {
                 email: email.substring(0, 3) + '***@' + email.split('@')[1]
             });

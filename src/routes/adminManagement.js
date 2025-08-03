@@ -42,10 +42,17 @@ router.use((req, res, next) => {
 
 // Apply CORS headers for admin routes
 router.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', process.env.CLIENT_URL || 'http://localhost:3000');
+    // Get client URL from environment variables with fallback
+    const clientUrl = process.env.NEXT_PUBLIC_WEBSITE_DOMAIN || 
+                     process.env.WEBSITE_DOMAIN || 
+                     process.env.CLIENT_URL || 
+                     (process.env.NODE_ENV === 'production' ? 'https://ecommerce-backend-l7a2.onrender.com' : 'http://localhost:3000');
+    
+    // Set CORS headers
+    res.header('Access-Control-Allow-Origin', clientUrl);
     res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, x-csrf-token');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
     
     // Handle preflight requests
     if (req.method === 'OPTIONS') {

@@ -16,8 +16,8 @@ supertokens.init({
     },
     appInfo: {
         ...config.supertokens.appInfo,
-        apiDomain: process.env.APP_URL || 'http://localhost:3000',
-        websiteDomain: process.env.CLIENT_URL || 'http://localhost:3000',
+        apiDomain: process.env.NEXT_PUBLIC_API_DOMAIN || process.env.APP_URL || 'https://ecommerce-backend-l7a2.onrender.com',
+        websiteDomain: process.env.NEXT_PUBLIC_WEBSITE_DOMAIN || process.env.WEBSITE_DOMAIN || process.env.CLIENT_URL || 'https://ecommerce-backend-l7a2.onrender.com',
     },
     recipeList: [
         require('supertokens-node/recipe/emailverification').init({

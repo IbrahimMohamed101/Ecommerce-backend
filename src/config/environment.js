@@ -20,12 +20,17 @@
         apiKey: process.env.SUPERTOKENS_API_KEY,
         appInfo: {
             appName: process.env.SUPERTOKENS_APP_NAME || "ecommerce-app",
-            apiDomain: process.env.NODE_ENV === 'production' 
-                ? (process.env.APP_URL || 'https://ecommerce-backend-l7a2.onrender.com')
-                : process.env.APP_URL || 'http://localhost:3000',
-            websiteDomain: process.env.NODE_ENV === 'production'
-                ? (process.env.WEBSITE_DOMAIN || process.env.APP_URL || 'https://ecommerce-backend-l7a2.onrender.com')
-                : process.env.WEBSITE_DOMAIN || 'http://localhost:3000',
+            apiDomain: process.env.NEXT_PUBLIC_API_DOMAIN || 
+                     process.env.APP_URL || 
+                     (process.env.NODE_ENV === 'production' 
+                        ? 'https://ecommerce-backend-l7a2.onrender.com' 
+                        : 'http://localhost:3000'),
+            websiteDomain: process.env.NEXT_PUBLIC_WEBSITE_DOMAIN || 
+                         process.env.WEBSITE_DOMAIN || 
+                         process.env.APP_URL || 
+                         (process.env.NODE_ENV === 'production' 
+                            ? 'https://ecommerce-backend-l7a2.onrender.com' 
+                            : 'http://localhost:3000'),
             apiBasePath: "/auth",
             websiteBasePath: "/auth"
         },

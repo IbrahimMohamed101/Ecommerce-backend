@@ -66,7 +66,7 @@ const verificationSuccess = (req, res) => {
                     <div class="success-icon">✓</div>
                     <h1>تم التحقق من بريدك الإلكتروني بنجاح!</h1>
                     <p>شكراً لك على التحقق من بريدك الإلكتروني. يمكنك الآن تسجيل الدخول إلى حسابك.</p>
-                    <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}/login" class="btn">تسجيل الدخول</a>
+                    <a href="${process.env.NEXT_PUBLIC_WEBSITE_DOMAIN || process.env.WEBSITE_DOMAIN || process.env.CLIENT_URL || 'https://ecommerce-backend-l7a2.onrender.com'}/login" class="btn">تسجيل الدخول</a>
                 </div>
             </body>
             </html>
@@ -76,7 +76,7 @@ const verificationSuccess = (req, res) => {
         res.status(200).json({
             success: true,
             message: 'Email verified successfully',
-            redirect: `${process.env.CLIENT_URL || 'http://localhost:3000'}/login`
+            redirect: `${process.env.NEXT_PUBLIC_WEBSITE_DOMAIN || process.env.WEBSITE_DOMAIN || process.env.CLIENT_URL || 'https://ecommerce-backend-l7a2.onrender.com'}/login`
         });
     }
 };
@@ -168,8 +168,8 @@ const verificationError = (req, res) => {
                     ${error ? `<div class="error-message">${error}</div>` : ''}
                     <p>عذراً، حدث خطأ أثناء محاولة التحقق من بريدك الإلكتروني. قد يكون الرابط غير صالح أو منتهي الصلاحية.</p>
                     <div>
-                        <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}/resend-verification" class="btn">إعادة إرسال بريد التحقق</a>
-                        <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}/contact-support" class="btn btn-outline">اتصل بالدعم الفني</a>
+                        <a href="${process.env.NEXT_PUBLIC_WEBSITE_DOMAIN || process.env.WEBSITE_DOMAIN || process.env.CLIENT_URL || 'https://ecommerce-backend-l7a2.onrender.com'}/resend-verification" class="btn">إعادة إرسال بريد التحقق</a>
+                        <a href="${process.env.NEXT_PUBLIC_WEBSITE_DOMAIN || process.env.WEBSITE_DOMAIN || process.env.CLIENT_URL || 'https://ecommerce-backend-l7a2.onrender.com'}/contact-support" class="btn btn-outline">اتصل بالدعم الفني</a>
                     </div>
                 </div>
             </body>

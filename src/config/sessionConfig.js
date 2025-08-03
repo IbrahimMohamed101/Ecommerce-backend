@@ -21,11 +21,21 @@ const SESSION_CONFIG = {
     ]
 };
 
+// Default production URL
+const DEFAULT_PRODUCTION_URL = 'https://ecommerce-backend-l7a2.onrender.com';
+const DEFAULT_DEVELOPMENT_URL = 'http://localhost:3000';
+
 const ENVIRONMENT = {
     IS_PRODUCTION: process.env.NODE_ENV === 'production',
-    APP_DOMAIN: process.env.APP_DOMAIN || 'http://localhost:3000',
-    CLIENT_DOMAIN: process.env.CLIENT_URL || 'http://localhost:3000',
-    ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3001']
+    // Use environment variables with fallbacks
+    APP_DOMAIN: process.env.APP_URL || (process.env.NODE_ENV === 'production' ? DEFAULT_PRODUCTION_URL : DEFAULT_DEVELOPMENT_URL),
+    CLIENT_DOMAIN: process.env.NEXT_PUBLIC_WEBSITE_DOMAIN || process.env.WEBSITE_DOMAIN || process.env.CLIENT_URL || 
+                  (process.env.NODE_ENV === 'production' ? DEFAULT_PRODUCTION_URL : DEFAULT_DEVELOPMENT_URL),
+    
+    // Parse allowed origins from environment variable or use defaults based on environment
+    ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS ? 
+        process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim()) : 
+        (process.env.NODE_ENV === 'production' ? [DEFAULT_PRODUCTION_URL] : [DEFAULT_DEVELOPMENT_URL, 'http://localhost:3001'])
 };
 
 /**

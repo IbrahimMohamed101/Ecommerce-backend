@@ -41,23 +41,41 @@ const connectDB = require('./config/database');
 connectDB();
 logger.info('✅ MongoDB connected successfully');
 
-// Configure CORS with more specific settings
-const allowedOrigins = [
-    process.env.WEBSITE_DOMAIN || 'http://localhost:3000',
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:3001',
-    'http://localhost',
-    'http://127.0.0.1',
-    'https://localhost:3000',
-    'https://localhost:3001',
-    'https://ecommerce-backend-l7a2.onrender.com',
-    'http://ecommerce-backend-l7a2.onrender.com',
-    // Add your frontend production URL here when it's ready
-    // 'https://your-frontend-domain.com',
-    // 'http://your-frontend-domain.com'
-];
+// Configure CORS with environment variables
+const getDefaultOrigins = () => {
+    const defaultProductionUrl = 'https://ecommerce-backend-l7a2.onrender.com';
+    const defaultDevelopmentUrls = [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:3001',
+        'http://localhost',
+        'http://127.0.0.1',
+        'https://localhost:3000',
+        'https://localhost:3001'
+    ];
+
+    // Get origins from environment variables
+    const envOrigins = [
+        process.env.NEXT_PUBLIC_WEBSITE_DOMAIN,
+        process.env.WEBSITE_DOMAIN,
+        process.env.CLIENT_URL,
+        process.env.APP_URL
+    ].filter(Boolean); // Remove any undefined/null values
+
+    // Combine all origins, remove duplicates, and filter out undefined
+    return [
+        ...new Set([
+            ...envOrigins,
+            ...(process.env.NODE_ENV === 'production' 
+                ? [defaultProductionUrl, `https://${defaultProductionUrl}`, `http://${defaultProductionUrl}`] 
+                : defaultDevelopmentUrls)
+        ])
+    ];
+};
+
+const allowedOrigins = getDefaultOrigins();
+logger.info('Configured CORS allowed origins:', { allowedOrigins });
 
 const corsOptions = {
     origin: function (origin, callback) {

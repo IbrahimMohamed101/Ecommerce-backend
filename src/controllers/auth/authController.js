@@ -139,7 +139,7 @@ const verifyEmail = async (req, res, next) => {
         // Redirect to success page or return success response
         if (req.accepts('html')) {
             // For browser requests, redirect to success page
-            const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+            const clientUrl = process.env.NEXT_PUBLIC_WEBSITE_DOMAIN || process.env.WEBSITE_DOMAIN || process.env.CLIENT_URL || 'https://ecommerce-backend-l7a2.onrender.com';
             return res.redirect(`${clientUrl}/auth/verification-success`);
         } else {
             // For API requests, return JSON response
@@ -167,7 +167,7 @@ const verifyEmail = async (req, res, next) => {
         
         if (req.accepts('html')) {
             // Redirect to error page with error message
-            const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+            const clientUrl = process.env.NEXT_PUBLIC_WEBSITE_DOMAIN || process.env.WEBSITE_DOMAIN || process.env.CLIENT_URL || 'https://ecommerce-backend-l7a2.onrender.com';
             return res.redirect(
                 `${clientUrl}/auth/verification-error?error=${encodeURIComponent(error.message)}`
             );
