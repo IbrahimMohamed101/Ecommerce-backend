@@ -23,10 +23,10 @@ const initSupertokens = () => {
             },
             appInfo: {
                 ...config.supertokens.appInfo,
-                // Use explicit domain configuration for production
-                apiDomain: process.env.API_DOMAIN || process.env.APP_URL || 'https://ecommerce-backend-l7a2.onrender.com',
-                websiteDomain: process.env.WEBSITE_DOMAIN || process.env.APP_URL || 'https://ecommerce-backend-l7a2.onrender.com',
-                websiteBasePath: "/auth"
+                // Use explicit domain configuration from environment variables
+                apiDomain: process.env.NEXT_PUBLIC_API_DOMAIN || process.env.API_DOMAIN || 'https://ecommerce-backend-l7a2.onrender.com',
+                websiteDomain: process.env.NEXT_PUBLIC_WEBSITE_DOMAIN || process.env.WEBSITE_DOMAIN || 'https://ecommerce-backend-l7a2.onrender.com',
+                websiteBasePath: process.env.NEXT_PUBLIC_WEBSITE_BASE_PATH || "/"
             },
             recipeList: [
                 emailVerificationConfig,
