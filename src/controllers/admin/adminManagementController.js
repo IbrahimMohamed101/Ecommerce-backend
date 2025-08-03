@@ -83,7 +83,9 @@ const createAdmin = async (req, res, next) => {
             token: emailVerificationToken,
             email: email
         });
-        const activationLink = `${process.env.CLIENT_URL || 'http://localhost:3000'}/auth/verify-email?${params.toString()}`;
+        const frontendUrl = process.env.NEXT_PUBLIC_WEBSITE_DOMAIN || process.env.WEBSITE_DOMAIN || process.env.APP_URL || 'https://ecommerce-backend-l7a2.onrender.com';
+        const basePath = process.env.NEXT_PUBLIC_WEBSITE_BASE_PATH || '';
+        const activationLink = `${frontendUrl}${basePath}/auth/verify-email?${params.toString()}`;
         
         try {
             await emailService.sendActivationEmail(

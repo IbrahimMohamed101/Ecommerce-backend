@@ -13,7 +13,8 @@ async function sendVerificationEmail(user, email, emailVerifyLink) {
         });
 
         // Always use the production URL from environment variables
-        const productionUrl = process.env.WEBSITE_DOMAIN || process.env.APP_URL || 'https://ecommerce-backend-l7a2.onrender.com';
+        const productionUrl = process.env.NEXT_PUBLIC_WEBSITE_DOMAIN || process.env.WEBSITE_DOMAIN || process.env.APP_URL || 'https://ecommerce-backend-l7a2.onrender.com';
+        const basePath = process.env.NEXT_PUBLIC_WEBSITE_BASE_PATH || '';
         let verificationLink = '';
         
         // Log the environment for debugging
@@ -32,7 +33,7 @@ async function sendVerificationEmail(user, email, emailVerifyLink) {
 
         // Always generate a new verification link using the production URL
         if (token) {
-            verificationLink = `${productionUrl}/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
+            verificationLink = `${productionUrl}${basePath}/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
             
             logger.info('🔗 Generated new verification link', {
                 originalLink: emailVerifyLink,
@@ -41,7 +42,7 @@ async function sendVerificationEmail(user, email, emailVerifyLink) {
             });
         } else {
             // Fallback if no token is available
-            verificationLink = `${productionUrl}/auth/verify-email?email=${encodeURIComponent(email)}`;
+            verificationLink = `${productionUrl}${basePath}/auth/verify-email?email=${encodeURIComponent(email)}`;
             logger.warn('No token found in emailVerifyLink, using fallback URL', {
                 email: email.substring(0, 3) + '***@' + email.split('@')[1]
             });

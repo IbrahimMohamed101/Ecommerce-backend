@@ -12,8 +12,9 @@ EmailVerification.init({
         service: {
             sendEmail: async function (input) {
                 try {
-                    const frontendUrl = process.env.CLIENT_URL || 'http://localhost:3000';
-                    const verificationLink = `${frontendUrl}/verify-email?token=${input.emailVerifyLink.split('?token=')[1]}&email=${encodeURIComponent(input.user.email)}`;
+                    const frontendUrl = process.env.NEXT_PUBLIC_WEBSITE_DOMAIN || process.env.WEBSITE_DOMAIN || process.env.APP_URL || 'https://ecommerce-backend-l7a2.onrender.com';
+                    const basePath = process.env.NEXT_PUBLIC_WEBSITE_BASE_PATH || '';
+                    const verificationLink = `${frontendUrl}${basePath}/auth/verify-email?token=${input.emailVerifyLink.split('?token=')[1]}&email=${encodeURIComponent(input.user.email)}`;
                     
                     logger.info('Sending verification email', { 
                         to: input.user.email,
