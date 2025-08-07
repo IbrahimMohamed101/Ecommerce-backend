@@ -38,7 +38,7 @@ async function sendVerificationEmail(user, email, emailVerifyLink) {
 
         // Always generate a new verification link using the production URL
         if (token) {
-            verificationLink = `${productionUrl}${pathPrefix}/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
+            verificationLink = `${productionUrl}/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
             
             logger.info('🔗 Generated new verification link', {
                 originalLink: emailVerifyLink,
@@ -47,7 +47,7 @@ async function sendVerificationEmail(user, email, emailVerifyLink) {
             });
         } else {
             // Fallback if no token is available
-            verificationLink = `${productionUrl}${pathPrefix}/auth/verify-email?email=${encodeURIComponent(email)}`;
+            verificationLink = `${productionUrl}/auth/verify-email?email=${encodeURIComponent(email)}`;
             logger.warn('No token found in emailVerifyLink, using fallback URL', {
                 email: email.substring(0, 3) + '***@' + email.split('@')[1]
             });

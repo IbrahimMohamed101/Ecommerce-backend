@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const crypto = require('crypto');
+const supertokens = require('supertokens-node'); // Add this import
 const User = require('../../models/User');
 const Role = require('../../models/Role');
 const { BadRequestError, InternalServerError } = require('../../utils/errors');
@@ -54,10 +55,19 @@ const createAdmin = async (req, res, next) => {
             throw new InternalServerError(`Failed to create user in authentication service: ${signUpResponse.status}`);
         }
 
-        // Generate email verification token
-        const emailVerificationToken = generateToken();
-        const emailVerificationExpires = new Date();
-        emailVerificationExpires.setHours(emailVerificationExpires.getHours() + 24); // Token expires in 24 hours
+        // Generate email verification token using SuperTokens
+        const { createEmailVerificationToken } = require('supertokens-node/recipe/emailverification');
+        
+        // Use the correct way to create RecipeUserId
+        const recipeUserId = supertokens.convertToRecipeUserId(signUpResponse.user.id);
+        const tokenResponse = await createEmailVerificationToken("public", recipeUserId);
+        
+        if (tokenResponse.status !== "OK") {
+            throw new InternalServerError(`Failed to create email verification token: ${tokenResponse.status}`);
+        }
+        const emailVerificationToken = tokenResponse.token;
+        // Optional: set an explicit expiry 24h from now for reference purposes
+        const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
         // Create the user in our database
         const newAdmin = new User({
@@ -84,8 +94,8 @@ const createAdmin = async (req, res, next) => {
             email: email
         });
         const frontendUrl = process.env.NEXT_PUBLIC_WEBSITE_DOMAIN || process.env.WEBSITE_DOMAIN || process.env.APP_URL || 'https://ecommerce-backend-l7a2.onrender.com';
-        const basePath = process.env.NEXT_PUBLIC_WEBSITE_BASE_PATH || '';
-        const activationLink = `${frontendUrl}${basePath}/auth/verify-email?${params.toString()}`;
+        const basePath = (process.env.NEXT_PUBLIC_WEBSITE_BASE_PATH || '').replace(/^\/+/,'').replace(/\/+$/,'');
+        const activationLink = `${frontendUrl}/auth/verify-email?${params.toString()}`;
         
         try {
             await emailService.sendActivationEmail(
