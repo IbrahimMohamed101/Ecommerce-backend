@@ -1,286 +1,92 @@
-// Load environment variables first
-require('dotenv').config({ path: '.env' });
+    // app.js
+    require('dotenv').config({ path: '.env' });
 
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const compression = require('compression');
-const morgan = require('morgan');
-const supertokens = require("supertokens-node");
-const { middleware, errorHandler: stErrorHandler } = require("supertokens-node/framework/express");
-const logger = require('./utils/logger');
-const requestLogger = require('./middleware/requestLogger');
+    const express = require('express');
+    const cors = require('cors');
+    const supertokens = require('supertokens-node');
+    const { middleware, errorHandler } = require('supertokens-node/framework/express');
 
-// Initialize app
-const app = express();
+    const logger = require('./utils/logger');
 
-// Log environment info
-logger.info('🚀 Starting server initialization...', {
+    /* --- 1.  Configuration & Infrastructure --- */
+    const { initSupertokens } = require('./config/supertokens');
+    const connectDB = require('./config/database');
+    const getCorsOptions = require('./config/cors');
+
+    /* --- 2.  Modular helpers --- */
+    const loggingMiddleware = require('./middleware/logging');
+    const securityMiddleware = require('./middleware/security');
+    const notFound = require('./middleware/notFound');
+    const genericErrorHandler = require('./middleware/errorHandler');
+
+    /* --- 3.  Route modules --- */
+    const registerRoutes = require('./routes');   // centralised route loader
+
+    /* --- 4.  Create & configure Express --- */
+    const app = express();
+
+    logger.info('🚀 Starting server initialization...', {
     node_env: process.env.NODE_ENV || 'development',
-    port: process.env.PORT || 3000
-});
+    port: process.env.PORT || 3000,
+    });
 
-const { initSupertokens } = require('./config/supertokens');
-// Initialize SuperTokens first
-logger.info('Initializing SuperTokens...');
-initSupertokens({
+    /* --- 4a.  Initialize SuperTokens & DB (once) --- */
+    initSupertokens({
     session: {
-        // Set session lifetime to 7 days
-        accessTokenValidity: 60 * 60 * 24 * 7, // 7 days in seconds
-        refreshTokenValidity: 60 * 60 * 24 * 30, // 30 days in seconds
+        accessTokenValidity: 60 * 60 * 24 * 7,   // 7 days
+        refreshTokenValidity: 60 * 60 * 24 * 30, // 30 days
         cookieSameSite: 'lax',
         cookieSecure: process.env.NODE_ENV === 'production',
-        domain: process.env.COOKIE_DOMAIN || 'localhost'
-    }
-});
-logger.info('✅ SuperTokens initialized successfully');
-
-// Then connect to MongoDB
-logger.info('Connecting to MongoDB...');
-const connectDB = require('./config/database');
-connectDB();
-logger.info('✅ MongoDB connected successfully');
-
-// Configure CORS with environment variables
-const getDefaultOrigins = () => {
-    const defaultProductionUrl = 'https://ecommerce-backend-l7a2.onrender.com';
-    const defaultDevelopmentUrls = [
-        'http://localhost:3000',
-        'http://localhost:3001',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:3001',
-        'http://localhost',
-        'http://127.0.0.1',
-        'https://localhost:3000',
-        'https://localhost:3001'
-    ];
-
-    // Get origins from environment variables
-    const envOrigins = [
-        process.env.NEXT_PUBLIC_WEBSITE_DOMAIN,
-        process.env.WEBSITE_DOMAIN,
-        process.env.CLIENT_URL,
-        process.env.APP_URL
-    ].filter(Boolean); // Remove any undefined/null values
-
-    // Combine all origins, remove duplicates, and filter out undefined
-    return [
-        ...new Set([
-            ...envOrigins,
-            ...(process.env.NODE_ENV === 'production' 
-                ? [defaultProductionUrl, `https://${defaultProductionUrl}`, `http://${defaultProductionUrl}`] 
-                : defaultDevelopmentUrls)
-        ])
-    ];
-};
-
-const allowedOrigins = getDefaultOrigins();
-logger.info('Configured CORS allowed origins:', { allowedOrigins });
-
-const corsOptions = {
-    origin: function (origin, callback) {
-        // Treat 'Not set' string as no origin (like mobile apps or curl requests)
-        if (!origin || origin === 'Not set') {
-            console.log('No origin header or "Not set" in request - allowing for development');
-            return callback(null, true);
-        }
-
-        // In development, allow all localhost origins
-        if (process.env.NODE_ENV === 'development') {
-            const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
-            if (isLocalhost) {
-                console.log('Development mode - Allowing localhost origin:', origin);
-                return callback(null, true);
-            }
-        }
-
-        // Check if the origin is in the allowed list
-        const isAllowed = allowedOrigins.some(allowedOrigin => {
-            try {
-                return origin === allowedOrigin || 
-                    (origin && new URL(origin).hostname === new URL(allowedOrigin).hostname);
-            } catch (e) {
-                console.warn('Error checking origin:', e.message);
-                return false;
-            }
-        });
-
-        if (isAllowed) {
-            console.log('Allowed origin:', origin);
-            return callback(null, true);
-        }
-
-        console.log('Blocked origin:', origin);
-        return callback(new Error('Not allowed by CORS'));
+        domain: process.env.COOKIE_DOMAIN || 'localhost',
     },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: [
-        'Content-Type',
-        'Authorization',
-        'rid',
-        'fdi-version',
-        'st-auth-mode',
-        'st-csrf-token',
-        'st-tenant-id',
-        'x-requested-with',
-        'x-csrf-token',
-        'x-xsrf-token',
-        'x-forwarded-proto',
-        'x-forwarded-host',
-        'x-forwarded-port',
-        ...supertokens.getAllCORSHeaders()
-    ],
-    exposedHeaders: [
-        'st-access-token',
-        'st-refresh-token',
-        'st-last-access-token-update',
-        'set-cookie',
-        ...supertokens.getAllCORSHeaders()
-    ],
-    optionsSuccessStatus: 200,
-    maxAge: 600, // 10 minutes
-    preflightContinue: false
-};
+    });
+    connectDB();
 
-// Apply request logger first
-app.use(requestLogger);
-
-// Apply CORS with the above configuration
-// Apply CORS with the above options
-app.use(cors(corsOptions));
-
-// Fix: Set Access-Control-Allow-Origin for requests with no origin (like Postman, mobile, curl)
-app.use((req, res, next) => {
+    /* --- 4b.  Global middleware --- */
+    app.use(...loggingMiddleware);                       // morgan + debug headers
+    app.use(cors(getCorsOptions()));                     // CORS
+    app.use((req, res, next) => {                        // fallback CORS header
     if (!req.headers.origin || req.headers.origin === 'Not set') {
         res.header('Access-Control-Allow-Origin', process.env.WEBSITE_DOMAIN || 'http://localhost:3000');
         res.header('Access-Control-Allow-Credentials', 'true');
     }
     next();
-});
-
-// Apply SuperTokens middleware
-app.use(middleware());
-
-// Handle preflight requests
-app.options('*', cors(corsOptions));
-
-/* Removed custom middleware that manually sets CORS headers to avoid setting invalid Access-Control-Allow-Origin header.
-   Rely on cors middleware to handle CORS headers properly. */
-
-// Intercept OPTIONS method for preflight requests handled by cors middleware
-app.options('*', cors(corsOptions));
-
-// Security headers
-app.use(helmet({
-    contentSecurityPolicy: false, // Disable CSP as it might block some frontend scripts
-    crossOriginEmbedderPolicy: false,
-    crossOriginOpenerPolicy: false,
-    crossOriginResourcePolicy: { policy: "cross-origin" },
-    originAgentCluster: false,
-    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
-    xssFilter: true
-}));
-
-app.use(compression());
-
-// Logging
-app.use(morgan('dev'));
-
-// Debugging middleware to log headers
-app.use((req, res, next) => {
-    console.log('\n=== Incoming Request ===');
-    console.log('Method:', req.method);
-    console.log('URL:', req.originalUrl);
-    console.log('Headers:', {
-        origin: req.headers.origin,
-        'content-type': req.headers['content-type'],
-        authorization: req.headers.authorization ? '***' : 'Not set',
-        cookie: req.headers.cookie ? '***' : 'Not set',
-        ...supertokens.getAllCORSHeaders().reduce((acc, header) => {
-            acc[header] = req.headers[header.toLowerCase()] ? '***' : 'Not set';
-            return acc;
-        }, {})
     });
-    console.log('========================\n');
-    next();
-});
 
-// Body parsers
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+    app.use(middleware());                               // SuperTokens
+    app.use(...securityMiddleware);                      // helmet, compression, etc.
 
-// Static files
-app.use('/uploads', express.static('uploads'));
+    /* --- 4c.  Body parsers & static files --- */
+    app.use(express.json({ limit: '10mb' }));
+    app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+    app.use('/uploads', express.static('uploads'));
 
-// Auth routes (including email verification)
-const authRoutes = require('./routes/authRoutes');
-app.use('/auth', authRoutes);
-
-// SuperTokens middleware
-app.use(middleware());
-
-// Root route
-app.get('/', (req, res) => {
-    res.status(200).json({
+    /* --- 5.  Routes --- */
+    app.get('/', (req, res) =>
+    res.json({
         success: true,
         message: 'Welcome to E-Commerce Backend API',
         documentation: 'Please refer to the API documentation for available endpoints',
         version: '1.0.0',
-        status: 'operational'
-    });
-});
+        status: 'operational',
+    })
+    );
 
-// Routes
-app.use('/auth', require('./routes/auth'));
-app.use('/api/test-email', require('./routes/test-email'));
-
-// SuperTokens error handler
-app.use(stErrorHandler());
-
-// Admin Management Routes (protected by super admin)
-app.use('/api/admin', require('./routes/adminManagement'));
-
-// 404 handler
-app.use((req, res, next) => {
-    res.status(404).json({
-        success: false,
-        message: 'Route not found',
-        error: {
-            statusCode: 404,
-            message: `Cannot ${req.method} ${req.originalUrl}`
-        }
-    });
-});
-
-// Error handler
-app.use((err, req, res, next) => {
-    logger.error('❌ Unhandled error:', {
-        error: err.message,
-        stack: err.stack,
-        path: req.path,
-        method: req.method
-    });
-
-    res.status(err.statusCode || 500).json({
-        success: false,
-        message: err.message || 'Internal Server Error',
-        error: {
-            statusCode: err.statusCode || 500,
-            message: err.message || 'Internal Server Error',
-            ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-        }
-    });
-});
-
-// Health check endpoint
-app.get('/health', (req, res) => {
+    app.get('/health', (req, res) =>
     res.json({
         success: true,
         message: 'Server is running',
         timestamp: new Date().toISOString(),
-        uptime: process.uptime()
-    });
-});
+        uptime: process.uptime(),
+    })
+    );
 
-module.exports = app;
+    // Centralised route registration
+    registerRoutes(app);
+
+    /* --- 6.  Error handling --- */
+    app.use(errorHandler());   // SuperTokens
+    app.use(notFound);         // 404
+    app.use(genericErrorHandler);
+
+    module.exports = app;
