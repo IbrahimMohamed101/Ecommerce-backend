@@ -4,12 +4,27 @@ const User = require('../models/User');
 module.exports = ThirdParty.init({
     signInAndUpFeature: {
         providers: [
+            // Google OAuth Configuration
             {
                 config: {
                     thirdPartyId: "google",
                     clients: [{
                         clientId: process.env.GOOGLE_CLIENT_ID,
-                        clientSecret: process.env.GOOGLE_CLIENT_SECRET
+                        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+                        scope: [
+                            'https://www.googleapis.com/auth/userinfo.email',
+                            'https://www.googleapis.com/auth/userinfo.profile'
+                        ]
+                    }]
+                }
+            },
+            // Twitter OAuth Configuration
+            {
+                config: {
+                    thirdPartyId: "twitter",
+                    clients: [{
+                        clientId: process.env.TWITTER_CLIENT_ID,
+                        clientSecret: process.env.TWITTER_CLIENT_SECRET
                     }]
                 }
             },

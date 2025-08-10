@@ -43,17 +43,24 @@
     connectDB();
 
     /* --- 4b.  Global middleware --- */
-    app.use(...loggingMiddleware);                       // morgan + debug headers
-    app.use(cors(getCorsOptions()));                     // CORS
-    app.use((req, res, next) => {                        // fallback CORS header
-    if (!req.headers.origin || req.headers.origin === 'Not set') {
-        res.header('Access-Control-Allow-Origin', process.env.WEBSITE_DOMAIN || 'http://localhost:3000');
+    // CORS setup
+    app.use(cors(getCorsOptions()));
+    
+    // CORS headers
+    app.use((req, res, next) => {
+        if (!req.headers.origin || req.headers.origin === 'Not set') {
+            res.header('Access-Control-Allow-Origin', process.env.WEBSITE_DOMAIN || 'http://localhost:3000');
+        }
         res.header('Access-Control-Allow-Credentials', 'true');
-    }
-    next();
+        res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, rid');
+        next();
     });
-
-    app.use(middleware());                               // SuperTokens
+    
+    // Add SuperTokens middleware before other routes
+    app.use(middleware());
+    
+    // Other middleware
+    app.use(...loggingMiddleware);  // morgan + debug headers
     app.use(...securityMiddleware);                      // helmet, compression, etc.
 
     /* --- 4c.  Body parsers & static files --- */
@@ -62,24 +69,35 @@
     app.use('/uploads', express.static('uploads'));
 
     /* --- 5.  Routes --- */
+    // Health check and root route
     app.get('/', (req, res) =>
-    res.json({
-        success: true,
-        message: 'Welcome to E-Commerce Backend API',
-        documentation: 'Please refer to the API documentation for available endpoints',
-        version: '1.0.0',
-        status: 'operational',
-    })
+        res.json({
+            success: true,
+            message: 'Welcome to E-Commerce Backend API',
+            documentation: 'Please refer to the API documentation for available endpoints',
+            version: '1.0.0',
+            status: 'operational',
+        })
     );
 
     app.get('/health', (req, res) =>
-    res.json({
-        success: true,
-        message: 'Server is running',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-    })
+        res.json({
+            success: true,
+            message: 'Server is running',
+            timestamp: new Date().toISOString(),
+            uptime: process.uptime(),
+        })
     );
+
+    // SuperTokens API routes
+    app.use('/auth', async (req, res, next) => {
+        try {
+            // Let SuperTokens handle all /auth/* routes
+            next();
+        } catch (err) {
+            next(err);
+        }
+    });
 
     // Centralised route registration
     registerRoutes(app);

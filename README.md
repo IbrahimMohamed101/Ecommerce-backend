@@ -67,6 +67,15 @@ Authorization: Bearer <your_jwt_token>
 
 These endpoints do not require authentication.
 
+#### Social Authentication
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/auth/google` | Initiate Google OAuth login |
+| GET | `/auth/twitter` | Initiate Twitter OAuth login |
+| GET | `/auth/callback/google` | Google OAuth callback URL |
+| GET | `/auth/callback/twitter` | Twitter OAuth callback URL |
+
 #### Password Reset
 
 | Method | Endpoint | Description |
